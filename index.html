@@ -1,0 +1,1962 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+</head>
+<body>
+<title>掌中窯</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=Jost:wght@400;500&family=Noto+Sans+TC:wght@400;500&family=Noto+Serif+TC:wght@500;700&display=swap">
+<style>
+  /* 版面：像陶藝工作室的網站。細線、留白、襯線英文標題配中文說明；3D 轉盤是畫面主角。單一淺色亞麻調性。 */
+  :root {
+    --cocoa: #411e03;
+    --mocha: #846851;
+    --sand: #d6b38d;
+    --olive: #8a895f;
+    --linen: #d7cdc1;
+    --paper: #f4f0ea;
+    --paper-2: #ebe4db;
+    --line: rgba(65, 30, 3, 0.16);
+    --muted: #7a6656;
+    --serif: "Cormorant Garamond", "Noto Serif TC", "Songti TC", serif;
+    --serif-zh: "Noto Serif TC", "Songti TC", serif;
+    --sans: "Jost", "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif;
+    --zh: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif;
+    --heat: 0;
+    color-scheme: light;
+  }
+  html, body { height: 100%; }
+  body { margin: 0; overflow: hidden; background: var(--paper); color: var(--cocoa); font-family: var(--zh); font-size: 14px; }
+  #app {
+    position: fixed;
+    inset: 0;
+    overflow: hidden;
+    background:
+      radial-gradient(ellipse at 62% 58%, rgba(255, 252, 247, 0.9) 0, rgba(255, 252, 247, 0) 46%),
+      linear-gradient(180deg, var(--paper) 0%, var(--paper-2) 100%);
+  }
+  #app[data-stage="kiln"] { background: radial-gradient(ellipse at 50% 70%, rgba(214, 120, 50, calc(0.18 + var(--heat) * 0.55)), transparent 62%), #2b1a0c; color: var(--paper); }
+
+  #bgLayer { position: absolute; inset: 0; display: none; background: #000; }
+  #app[data-stage="ar"] #bgLayer { display: block; }
+  #bgLayer > * { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: none; }
+  #bgLayer[data-bg="room"] #room, #bgLayer[data-bg="photo"] #photo { display: block; }
+  #cam { position: absolute; display: none; transform: scaleX(-1); }
+  #cam.full { display: block; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  #cam.pip {
+    display: block;
+    right: max(16px, env(safe-area-inset-right, 0px));
+    bottom: calc(90px + env(safe-area-inset-bottom, 0px));
+    width: 168px;
+    height: auto;
+    border: 1px solid var(--line);
+    z-index: 4;
+  }
+  #stage, #handLayer { position: absolute; inset: 0; }
+  #stage canvas { display: block; touch-action: none; }
+  #handLayer { z-index: 5; pointer-events: none; width: 100%; height: 100%; }
+
+  /* 文字層級 */
+  .cap { font-family: var(--sans); font-size: 11px; font-weight: 500; letter-spacing: 0.22em; text-transform: uppercase; }
+
+  /* 按鈕 */
+  button, label.btn {
+    font: inherit;
+    font-family: var(--sans);
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 13px 18px;
+    color: var(--cocoa);
+    background: rgba(244, 240, 234, 0.9);
+    border: 1px solid var(--cocoa);
+    border-radius: 0;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+  }
+  button:hover, label.btn:hover { background: var(--paper-2); }
+  button:focus-visible, label.btn:focus-within { outline: 2px solid var(--olive); outline-offset: 3px; }
+  button.primary { background: var(--cocoa); color: var(--paper); }
+  button.primary:hover { background: #5a2c08; }
+  button.on { background: var(--sand); }
+  button[hidden] { display: none !important; }
+  button small, label.btn small { font-family: var(--zh); font-size: 12px; letter-spacing: 0.05em; text-transform: none; opacity: 0.8; }
+  button .g { font-family: var(--zh); font-size: 11px; letter-spacing: 0.05em; text-transform: none; padding: 2px 8px; border: 1px solid currentColor; opacity: 0.85; }
+  label.btn input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+
+  /* 頁首 */
+  header.top {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    z-index: 6;
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    gap: 16px;
+    padding-top: calc(18px + env(safe-area-inset-top, 0px));
+    padding-bottom: 14px;
+    padding-left: max(24px, env(safe-area-inset-left, 0px));
+    padding-right: max(24px, env(safe-area-inset-right, 0px));
+    border-bottom: 1px solid var(--line);
+    pointer-events: none;
+  }
+  .brand { display: flex; align-items: baseline; gap: 12px; white-space: nowrap; }
+  .brand b { font-family: var(--serif-zh); font-weight: 700; font-size: 20px; letter-spacing: 0.2em; }
+  ol.steps { display: flex; gap: 22px; margin: 0; padding: 0; list-style: none; }
+  ol.steps li { font-family: var(--sans); font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--muted); padding-bottom: 4px; border-bottom: 1px solid transparent; white-space: nowrap; }
+  ol.steps li span { margin-right: 6px; opacity: 0.6; }
+  ol.steps li.done { color: var(--olive); }
+  ol.steps li.now { color: var(--cocoa); border-bottom-color: var(--cocoa); }
+  #app[data-stage="intro"] ol.steps { visibility: hidden; }
+  #status { justify-self: end; display: flex; align-items: center; gap: 8px; color: var(--muted); }
+  #status i { width: 7px; height: 7px; border-radius: 50%; background: var(--linen); }
+  #status.live i { background: var(--olive); box-shadow: 0 0 0 4px rgba(138, 137, 95, 0.2); }
+  #app[data-stage="kiln"] header.top, #app[data-stage="kiln"] #status, #app[data-stage="kiln"] ol.steps li { color: var(--linen); border-color: rgba(244,240,234,0.2); }
+  #app[data-stage="ar"] header.top { background: rgba(244, 240, 234, 0.82); }
+
+  /* 提示 */
+  #hint {
+    position: absolute;
+    z-index: 6;
+    left: 50%;
+    top: calc(84px + env(safe-area-inset-top, 0px));
+    transform: translateX(-50%);
+    width: min(560px, calc(100% - 32px));
+    text-align: center;
+    pointer-events: none;
+  }
+  #hint em { display: block; font-family: var(--serif); font-style: italic; font-size: 24px; line-height: 1.25; text-wrap: balance; }
+  #hint span { display: block; margin-top: 4px; font-size: 13px; color: var(--muted); }
+  #app[data-stage="ar"] #hint { background: rgba(244, 240, 234, 0.82); padding: 8px 14px; }
+  #app[data-stage="intro"] #hint { display: none; }
+
+  #meterTag { position: absolute; z-index: 6; right: max(24px, env(safe-area-inset-right, 0px)); top: calc(96px + env(safe-area-inset-top, 0px)); text-align: right; display: none; }
+  #meterTag b { display: block; font-family: var(--serif); font-weight: 500; font-size: 40px; line-height: 1; font-variant-numeric: tabular-nums; }
+  #meterTag b small { font-size: 16px; margin-left: 3px; }
+  #app[data-stage="depth"] #meterTag, #app[data-stage="shape"] #meterTag { display: block; }
+
+  /* 首頁 */
+  #intro {
+    position: absolute;
+    z-index: 7;
+    left: max(24px, env(safe-area-inset-left, 0px));
+    top: 50%;
+    transform: translateY(-46%);
+    width: min(480px, calc(100% - 48px));
+    display: none;
+    flex-direction: column;
+    gap: 18px;
+  }
+  #app[data-stage="intro"] #intro { display: flex; }
+  #intro .cap { color: var(--mocha); }
+  #intro h1 { margin: 0; font-family: var(--serif); font-weight: 500; font-size: clamp(44px, 6.4vw, 76px); line-height: 1.02; letter-spacing: -0.01em; text-wrap: balance; }
+  #intro .zh { margin: 0; font-family: var(--serif-zh); font-size: 18px; line-height: 1.7; }
+  #intro p.body { margin: 0; color: var(--muted); line-height: 1.85; max-width: 30em; }
+  #intro .actions { display: flex; flex-wrap: wrap; align-items: center; gap: 18px; margin-top: 6px; }
+  #intro .link { background: none; border: 0; padding: 0; border-bottom: 1px solid var(--cocoa); padding-bottom: 3px; }
+  #intro .gestures { display: grid; grid-template-columns: repeat(3, auto); justify-content: start; gap: 6px 26px; margin-top: 10px; padding-top: 16px; border-top: 1px solid var(--line); }
+  #intro .gestures div { display: flex; flex-direction: column; gap: 2px; }
+  #intro .gestures b { font-family: var(--serif); font-weight: 600; font-size: 17px; }
+  #intro .gestures span { font-size: 12px; color: var(--muted); }
+
+  /* 手勢說明 */
+  #legend {
+    position: absolute;
+    z-index: 6;
+    left: max(24px, env(safe-area-inset-left, 0px));
+    bottom: calc(96px + env(safe-area-inset-bottom, 0px));
+    width: 230px;
+    display: none;
+    flex-direction: column;
+    gap: 10px;
+    padding: 16px 18px;
+    background: rgba(244, 240, 234, 0.88);
+    border: 1px solid var(--line);
+  }
+  #legend.show { display: flex; }
+  #legend .cap { color: var(--mocha); }
+  #legend ul { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 9px; }
+  #legend li { display: grid; grid-template-columns: 78px 1fr; gap: 10px; align-items: baseline; font-size: 13px; }
+  #legend li b { font-family: var(--serif); font-weight: 600; font-size: 16px; }
+
+  /* 操作列 */
+  nav.bar {
+    position: absolute;
+    z-index: 7;
+    left: 50%;
+    bottom: calc(22px + env(safe-area-inset-bottom, 0px));
+    transform: translateX(-50%);
+    width: min(920px, calc(100% - 32px));
+    display: none;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+  }
+  #app[data-stage="depth"] nav[data-for="depth"],
+  #app[data-stage="shape"] nav[data-for="shape"],
+  #app[data-stage="handle"] nav[data-for="handle"],
+  #app[data-stage="kiln"] nav[data-for="kiln"],
+  #app[data-stage="reveal"] nav[data-for="reveal"],
+  #app[data-stage="ar"] nav[data-for="ar"] { display: flex; }
+  .size { display: inline-flex; align-items: center; gap: 10px; padding: 11px 16px; background: rgba(244, 240, 234, 0.9); border: 1px solid var(--line); }
+  .size input { width: 110px; accent-color: var(--cocoa); }
+
+  /* 窯 */
+  #kilnVideo { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: 4; display: none; background: #000; }
+  #app.video #kilnVideo { display: block; }
+  #kilnHud { position: absolute; z-index: 6; right: max(24px, env(safe-area-inset-right, 0px)); top: calc(96px + env(safe-area-inset-top, 0px)); display: none; flex-direction: column; align-items: flex-end; gap: 6px; width: 220px; color: var(--paper); }
+  #app[data-stage="kiln"] #kilnHud { display: flex; }
+  #app.video #kilnHud { display: none; }
+  #temp { font-family: var(--serif); font-size: 56px; line-height: 1; font-variant-numeric: tabular-nums; }
+  #temp small { font-size: 20px; margin-left: 3px; }
+  #kilnStep { font-size: 13px; color: var(--linen); }
+  .meter { width: 100%; height: 2px; background: rgba(244, 240, 234, 0.2); }
+  .meter i { display: block; height: 100%; width: 0; background: var(--sand); }
+
+  /* 作品卡 */
+  #card {
+    position: absolute;
+    z-index: 6;
+    right: max(24px, env(safe-area-inset-right, 0px));
+    top: 50%;
+    transform: translateY(-46%);
+    width: 290px;
+    padding: 24px 24px 22px;
+    background: rgba(244, 240, 234, 0.92);
+    border: 1px solid var(--line);
+    display: none;
+    flex-direction: column;
+    gap: 14px;
+  }
+  #app[data-stage="reveal"] #card { display: flex; }
+  #card .cap { color: var(--mocha); font-variant-numeric: tabular-nums; }
+  #card h2 { margin: 0; font-family: var(--serif); font-weight: 500; font-size: 34px; line-height: 1.05; }
+  #card .zhname { margin-top: -6px; font-family: var(--serif-zh); font-size: 15px; color: var(--mocha); }
+  #card .swatches { display: flex; gap: 0; height: 14px; }
+  #card .swatches i { flex: 1; }
+  #card dl { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 8px 16px; font-size: 13px; border-top: 1px solid var(--line); padding-top: 14px; }
+  #card dt { font-family: var(--sans); font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--muted); padding-top: 2px; }
+  #card dd { margin: 0; font-variant-numeric: tabular-nums; }
+
+  #flash { position: absolute; inset: 0; z-index: 8; background: #fffaf3; opacity: 0; pointer-events: none; }
+  #flash.go { animation: flash 1s ease-out; }
+  @keyframes flash { 0% { opacity: 0; } 15% { opacity: 0.95; } 100% { opacity: 0; } }
+
+  #count { position: absolute; z-index: 8; left: 50%; top: 50%; transform: translate(-50%, -50%); display: none; font-family: var(--serif); font-size: 160px; line-height: 1; color: var(--paper); text-shadow: 0 4px 30px rgba(65, 30, 3, 0.5); }
+  #count.show { display: block; }
+
+  #shot { position: absolute; inset: 0; z-index: 9; display: none; align-items: center; justify-content: center; background: rgba(43, 26, 12, 0.6); padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+  #shot.open { display: flex; }
+  #shot figure { margin: 0; padding: 18px; display: flex; flex-direction: column; gap: 14px; align-items: center; max-width: 100%; background: var(--paper); }
+  #shot img { max-width: min(820px, 100%); max-height: 62vh; }
+  #shot figcaption { font-size: 12px; color: var(--muted); text-align: center; }
+  #shot .actions { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+
+  #toast { position: absolute; z-index: 10; left: 50%; bottom: calc(92px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); width: max-content; max-width: min(520px, calc(100% - 32px)); padding: 12px 18px; font-size: 13px; line-height: 1.6; background: var(--cocoa); color: var(--paper); opacity: 0; pointer-events: none; transition: opacity 0.25s; }
+  #toast.show { opacity: 1; }
+
+  @media (max-width: 900px) {
+    header.top { grid-template-columns: auto 1fr auto; }
+    ol.steps { gap: 10px; justify-content: center; }
+    ol.steps li:not(.now) b { display: none; }
+    ol.steps li:not(.now) span { margin: 0; }
+    .brand .cap { display: none; }
+  }
+  @media (max-width: 640px) {
+    #status .cap { display: none; }
+    #legend { display: none !important; }
+    #hint em { font-size: 19px; }
+    #intro { top: auto; bottom: calc(24px + env(safe-area-inset-bottom, 0px)); transform: none; gap: 12px; }
+    #intro .gestures { display: none; }
+    #card { top: auto; right: 50%; transform: translateX(50%); bottom: calc(150px + env(safe-area-inset-bottom, 0px)); width: min(340px, calc(100% - 32px)); padding: 16px 18px; gap: 10px; }
+    #card h2 { font-size: 26px; }
+    #cam.pip { width: 100px; bottom: calc(150px + env(safe-area-inset-bottom, 0px)); }
+    button, label.btn { padding: 11px 12px; letter-spacing: 0.1em; }
+    .size input { width: 80px; }
+    #meterTag b { font-size: 30px; }
+  }
+  @media (prefers-reduced-motion: reduce) { #flash.go { animation: none; } }
+</style>
+
+<div id="app" data-stage="intro">
+  <div id="bgLayer" data-bg="room">
+    <canvas id="room"></canvas>
+    <img id="photo" alt="">
+  </div>
+  <video id="cam" playsinline muted></video>
+  <div id="stage"></div>
+  <video id="kilnVideo" playsinline muted></video>
+  <canvas id="handLayer"></canvas>
+
+  <header class="top">
+    <div class="brand"><b>掌中窯</b><span class="cap">Kiln in Palm</span></div>
+    <ol class="steps" aria-label="Steps">
+      <li data-s="depth"><span>01</span><b>Open</b></li>
+      <li data-s="shape"><span>02</span><b>Shape</b></li>
+      <li data-s="kiln"><span>03</span><b>Fire</b></li>
+      <li data-s="reveal"><span>04</span><b>Reveal</b></li>
+      <li data-s="ar"><span>05</span><b>Capture</b></li>
+    </ol>
+    <div id="status"><i></i><span class="cap" id="statusText">Mouse</span></div>
+  </header>
+
+  <div id="hint"><em></em><span></span></div>
+  <div id="meterTag"><span class="cap" id="meterLabel">Depth</span><b id="meterVal">0.0<small>cm</small></b></div>
+
+  <section id="intro">
+    <div class="cap">Yingge · Hand-thrown Pottery</div>
+    <h1>Shape clay with your own hands.</h1>
+    <p class="zh">伸出雙手，在轉盤上拉一只屬於你的陶。</p>
+    <p class="body">開孔、拉坯，送進窯裡燒製。出窯時，程式會為它生成一組碎形釉紋，每一只都不一樣。</p>
+    <div class="actions">
+      <button id="btnStartHand" class="primary">Start with camera <small>開啟鏡頭</small></button>
+      <button id="btnStartMouse" class="link">Use the mouse <small>用滑鼠</small></button>
+    </div>
+    <div class="gestures">
+      <div><b>Press</b><span>手指按壓・往內推</span></div>
+      <div><b>Pinch</b><span>捏住・往外拉</span></div>
+      <div><b>Thumbs up</b><span>比讚・下一步</span></div>
+    </div>
+  </section>
+
+  <aside id="legend">
+    <span class="cap">Gestures 手勢</span>
+    <ul id="legendList"></ul>
+  </aside>
+
+  <nav class="bar" data-for="depth">
+    <button id="btnDepthReset">Reset <small>重來</small></button>
+    <button class="primary" data-next>Next <small>完成開孔</small> <span class="g">比讚</span></button>
+  </nav>
+  <nav class="bar" data-for="shape">
+    <button id="btnDemo">Sample form <small>示範造型</small></button>
+    <button id="btnShapeReset">Reset <small>重來</small></button>
+    <button class="primary" data-next>Fire <small>送進窯燒</small> <span class="g">比讚</span></button>
+  </nav>
+  <nav class="bar" data-for="kiln">
+    <button data-next>Skip <small>略過動畫</small> <span class="g">比讚</span></button>
+  </nav>
+  <nav class="bar" data-for="reveal">
+    <button id="btnReshape">Start over <small>重新捏陶</small></button>
+    <button id="btnRefire">New glaze <small>換一組釉紋</small> <span class="g">比一</span></button>
+    <button class="primary" data-next>AR <small>放進鏡頭</small> <span class="g">比讚</span></button>
+  </nav>
+  <nav class="bar" data-for="ar">
+    <button id="btnBack">Back <small>回到作品</small></button>
+    <label class="btn" for="filePhoto">Photo <small>上傳背景</small><input id="filePhoto" type="file" accept="image/*"></label>
+    <button id="btnRoom" hidden>Studio <small>示範場景</small></button>
+    <span class="size"><label class="cap" for="sizeRange">Size</label><input id="sizeRange" type="range" min="0.25" max="1.6" step="0.01" value="0.7"></span>
+    <button id="btnShot" class="primary">Capture <small>拍照</small> <span class="g">YA</span></button>
+  </nav>
+
+  <div id="kilnHud">
+    <span class="cap">Firing 燒製中</span>
+    <div id="temp">25<small>°C</small></div>
+    <div id="kilnStep">升溫中</div>
+    <div class="meter"><i id="meter"></i></div>
+  </div>
+
+  <aside id="card" aria-live="polite">
+    <span class="cap" id="cardNo">No. 0000</span>
+    <h2 id="cardName">Celadon Julia</h2>
+    <div class="zhname" id="cardZh">青瓷・茱莉亞</div>
+    <div class="swatches" id="cardSw"></div>
+    <dl>
+      <dt>Glaze</dt><dd id="cardGlaze">—</dd>
+      <dt>Kiln</dt><dd id="cardTemp">—</dd>
+      <dt>Size</dt><dd id="cardSize">—</dd>
+    </dl>
+  </aside>
+
+  <div id="count"></div>
+  <div id="flash"></div>
+
+  <div id="shot" role="dialog" aria-label="Photo preview">
+    <figure>
+      <img id="shotImg" alt="你的陶器照片">
+      <figcaption>比讚儲存，比一重拍。儲存沒有反應的話，在圖片上按右鍵或長按另存。</figcaption>
+      <div class="actions">
+        <button id="btnSave" class="primary">Save <small>儲存</small> <span class="g">比讚</span></button>
+        <button id="btnShotClose">Retake <small>重拍</small> <span class="g">比一</span></button>
+      </div>
+    </figure>
+  </div>
+
+  <div id="toast" role="status"></div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/p5@1.11.1/lib/p5.min.js"></script>
+<script>
+/*
+ * 掌中窯 v3 — p5.js + ml5.js HandPose
+ * 雙手操作：手指按壓（往內推）、捏住（往外拉、拉把手、移動）
+ * 手勢：比讚＝下一步、YA＝拍照／對稱把手、張開手掌＝換釉紋／重拍
+ */
+
+// ---------- 可調參數 ----------
+const KILN_VIDEO = 'kiln.mp4';   // 燒窯動畫：放在同一資料夾，用這個檔名；找不到就用內建動畫
+const ML5_URL = 'https://unpkg.com/ml5@1.2.1/dist/ml5.min.js';
+const N = 72, SEG = 56;
+const H_START = 280, H_MIN = 190, H_MAX = 400, HEIGHT_K = 0.55;   // 高度隨體積守恆調整的範圍
+const BASE_Y = 150, OFFSET_Y = 34;
+const MIN_R = 26, MAX_R = 168, START_R = 92;
+const WALL = 13, MIN_WALL = 6, TILT = -0.38;
+const INFLUENCE = 5, STRENGTH = 0.08, MAX_STEP = 0.8;  // 影響範圍（上下各幾環）、變化速度
+const FLOOR_THICK = 14, BOWL_RINGS = 3;               // 底部最少厚度、內底圓弧
+const UNIT_CM = 0.055;
+const KILN_MS = 5200;
+const HOLD = { thumbs: 900, peace: 800, one: 900 };
+const SPIN = 0.028;
+
+// ---------- 狀態 ----------
+let stage = 'intro';
+let radii = [], innerR = [], ridgeO = [], ridgeI = [], floorJ = N - 1;
+let frameDt = 1, clayH = H_START, area0 = 1, height0 = H_START, potDirty = true, potGeom = null, clayShader = null, shadowTex = null;
+let draft = null;
+let spin = 0, S = 1, cnv;
+let glaze = null;
+let kilnStart = 0, kilnMode = 'builtin', embers = [];
+let handOn = false, handPose = null, handReady = false, hands = [];
+let handViews = [];
+const smoothKP = {}, poseHist = {}, engage = {};
+let contacts = [];
+const ptrs = new Map();
+let hover = null;
+const ar = { x: 0, y: 0, s: 0.7 };
+let arGrab = null;
+let captureReq = false, lastShot = null, countdown = null;
+let stream = null;
+let gestureHold = null, gestureLock = null, gestureLockAt = 0, quietUntil = 0;
+let hlx;
+
+const $ = id => document.getElementById(id);
+
+// ---------- 陶土材質（p5 自訂 shader） ----------
+// 紋理用「材料座標」產生：uv.x 是繞一圈的角度、uv.y 是第幾環，
+// 所以顆粒和斑點會跟著陶土一起變形、一起轉，不會固定在空間裡滑動。
+const CLAY_VERT = `
+precision highp float;
+attribute vec3 aPosition;
+attribute vec3 aNormal;
+attribute vec2 aTexCoord;
+uniform mat4 uModelViewMatrix;
+uniform mat4 uProjectionMatrix;
+uniform mat3 uNormalMatrix;
+varying vec3 vN;
+varying vec2 vUV;
+void main() {
+  vN = normalize(uNormalMatrix * aNormal);
+  vUV = aTexCoord;
+  gl_Position = uProjectionMatrix * uModelViewMatrix * vec4(aPosition, 1.0);
+}`;
+
+const CLAY_FRAG = `
+precision highp float;
+varying vec3 vN;
+varying vec2 vUV;
+uniform float uMode;      // 0 濕陶土、1 釉面、2 轉盤
+uniform sampler2D uTex;
+uniform vec2 uTile;
+uniform vec3 uRim;
+uniform vec3 uInner;
+uniform vec3 uClay;
+uniform float uHeat;
+uniform float uFloorV;
+uniform float uWet;
+
+// 3D simplex noise（Ashima Arts / Stefan Gustavson，MIT）
+vec3 mod289(vec3 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
+vec4 mod289(vec4 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
+vec4 permute(vec4 x) { return mod289(((x * 34.0) + 1.0) * x); }
+vec4 taylorInvSqrt(vec4 r) { return 1.79284291400159 - 0.85373472095314 * r; }
+float snoise(vec3 v) {
+  const vec2 C = vec2(1.0 / 6.0, 1.0 / 3.0);
+  const vec4 D = vec4(0.0, 0.5, 1.0, 2.0);
+  vec3 i = floor(v + dot(v, C.yyy));
+  vec3 x0 = v - i + dot(i, C.xxx);
+  vec3 g = step(x0.yzx, x0.xyz);
+  vec3 l = 1.0 - g;
+  vec3 i1 = min(g.xyz, l.zxy);
+  vec3 i2 = max(g.xyz, l.zxy);
+  vec3 x1 = x0 - i1 + C.xxx;
+  vec3 x2 = x0 - i2 + C.yyy;
+  vec3 x3 = x0 - D.yyy;
+  i = mod289(i);
+  vec4 p = permute(permute(permute(i.z + vec4(0.0, i1.z, i2.z, 1.0)) + i.y + vec4(0.0, i1.y, i2.y, 1.0)) + i.x + vec4(0.0, i1.x, i2.x, 1.0));
+  float n_ = 0.142857142857;
+  vec3 ns = n_ * D.wyz - D.xzx;
+  vec4 j = p - 49.0 * floor(p * ns.z * ns.z);
+  vec4 x_ = floor(j * ns.z);
+  vec4 y_ = floor(j - 7.0 * x_);
+  vec4 x = x_ * ns.x + ns.yyyy;
+  vec4 y = y_ * ns.x + ns.yyyy;
+  vec4 h = 1.0 - abs(x) - abs(y);
+  vec4 b0 = vec4(x.xy, y.xy);
+  vec4 b1 = vec4(x.zw, y.zw);
+  vec4 s0 = floor(b0) * 2.0 + 1.0;
+  vec4 s1 = floor(b1) * 2.0 + 1.0;
+  vec4 sh = -step(h, vec4(0.0));
+  vec4 a0 = b0.xzyw + s0.xzyw * sh.xxyy;
+  vec4 a1 = b1.xzyw + s1.xzyw * sh.zzww;
+  vec3 p0 = vec3(a0.xy, h.x);
+  vec3 p1 = vec3(a0.zw, h.y);
+  vec3 p2 = vec3(a1.xy, h.z);
+  vec3 p3 = vec3(a1.zw, h.w);
+  vec4 norm = taylorInvSqrt(vec4(dot(p0, p0), dot(p1, p1), dot(p2, p2), dot(p3, p3)));
+  p0 *= norm.x; p1 *= norm.y; p2 *= norm.z; p3 *= norm.w;
+  vec4 m = max(0.6 - vec4(dot(x0, x0), dot(x1, x1), dot(x2, x2), dot(x3, x3)), 0.0);
+  m = m * m;
+  return 42.0 * dot(m * m, vec4(dot(p0, x0), dot(p1, x1), dot(p2, x2), dot(p3, x3)));
+}
+float fbm(vec3 p) {
+  float v = 0.0, a = 0.5;
+  for (int i = 0; i < 4; i++) { v += a * snoise(p); p *= 2.03; a *= 0.5; }
+  return v;
+}
+
+void main() {
+  // 區域：外壁 0、唇口 1、內壁 2
+  float region = vUV.y < 1.0001 ? 0.0 : (vUV.y < 1.5 ? 1.0 : 2.0);
+  float h = region < 1.5 ? vUV.y : vUV.y - 2.0;
+  float th = vUV.x * 6.2831853;
+  // 圓周方向用 cos/sin，繞一圈剛好接起來
+  vec3 q = vec3(cos(th) * 3.2, sin(th) * 3.2, h * 10.0 + region * 7.3);
+
+  float nLarge = fbm(q * 0.8);
+  float nFine = snoise(q * 9.0);
+  float nStreak = snoise(vec3(q.xy * 0.6, h * 70.0));   // 拉坯時沿著圓周的細紋
+
+  vec3 N = normalize(vN);
+  vec3 base;
+  float specK, shin, bump;
+  if (uMode > 0.5 && uMode < 1.5) {
+    if (region < 0.5) base = texture2D(uTex, vec2(vUV.x * uTile.x, 1.0 - vUV.y)).rgb;
+    else if (region < 1.5) base = uRim;
+    else base = uInner;
+    specK = 0.32; shin = 46.0; bump = 0.012;
+  } else {
+    vec3 c = uMode > 1.5 ? vec3(0.86, 0.79, 0.7) : uClay;
+    base = uMode > 1.5 ? c * (0.97 + 0.05 * nLarge) : c * (0.93 + 0.1 * nLarge + 0.035 * nStreak);
+    float speck = smoothstep(0.62, 0.86, snoise(q * 16.0 + 3.0));
+    base = mix(base, base * 0.6, speck * 0.55);
+    if (region > 1.5) base *= 0.9;
+    specK = 0.16 * uWet; shin = 16.0; bump = 0.07;
+  }
+  // 細微凹凸：用雜訊稍微擾動法線，產生陶土略粗的質感
+  N = normalize(N + bump * vec3(nFine, snoise(q * 9.0 + 17.0), 0.0) + bump * 0.8 * vec3(0.0, nStreak, 0.0));
+
+  // 內部越深越暗（環境遮蔽）
+  float ao = 1.0;
+  if (region > 1.5) ao = mix(0.42, 0.95, smoothstep(uFloorV, 1.0, h));
+  if (region > 0.5 && region < 1.5) ao = 1.04;
+
+  vec3 L1 = normalize(vec3(-0.45, -0.6, 0.66));   // 主光：左上前方（p5 的 y 軸朝下）
+  vec3 L2 = normalize(vec3(0.75, -0.05, 0.45));   // 補光：右側
+  vec3 V = vec3(0.0, 0.0, 1.0);
+  float d1 = max(dot(N, L1), 0.0);
+  float d2 = max(dot(N, L2), 0.0);
+  vec3 col = base * (0.36 + 0.72 * (d1 * 0.8 + 0.2) + 0.22 * d2) * ao;
+  // 濕陶土：柔和、範圍大的高光
+  vec3 H = normalize(L1 + V);
+  float sp = pow(max(dot(N, H), 0.0), shin) * specK * (0.65 + 0.45 * nFine);
+  col += vec3(1.0, 0.96, 0.9) * sp * ao;
+  float fres = pow(1.0 - max(dot(N, V), 0.0), 3.0);
+  col += base * 0.16 * fres;
+
+  if (uHeat > 0.0) {
+    col = mix(col, vec3(1.0, 0.45, 0.12) * (0.55 + 0.6 * d1), uHeat * 0.75);
+    col += vec3(0.32, 0.09, 0.0) * uHeat;
+  }
+  gl_FragColor = vec4(col, 1.0);
+}`;
+
+// ---------- p5 ----------
+function setup() {
+  pixelDensity(Math.min(2, window.devicePixelRatio || 1));
+  cnv = createCanvas(windowWidth, windowHeight, WEBGL);
+  cnv.parent('stage');
+  ortho();
+  textureMode(NORMAL);
+  textureWrap(REPEAT, REPEAT);
+  hlx = $('handLayer').getContext('2d');
+  sizeHandLayer();
+  updateScale();
+  clayShader = createShader(CLAY_VERT, CLAY_FRAG);
+  shadowTex = makeShadowTexture();
+  potGeom = new p5.Geometry(1, 1);
+  potGeom.gid = 'pot-mesh';
+  introPot();
+  glaze = makeGlaze(newSeed());
+  bindPointers(cnv.elt);
+  bindUI();
+  drawRoom();
+  resetAR();
+  setStage('intro');
+}
+
+function windowResized() {
+  resizeCanvas(windowWidth, windowHeight);
+  ortho();
+  updateScale();
+  sizeHandLayer();
+  drawRoom();
+}
+
+function updateScale() { S = Math.min(width / 780, height / 820, 1.25); }
+
+function sizeHandLayer() {
+  const c = $('handLayer');
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  c.width = Math.round(window.innerWidth * dpr);
+  c.height = Math.round(window.innerHeight * dpr);
+  hlx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+
+function draw() {
+  clear();
+  const dt = Math.min(deltaTime, 50) / 16.67;
+  frameDt = dt;   // 讓塑形速度不受電腦快慢影響
+
+  readHands();
+  gatherContacts();
+  handleGestures();
+
+  if (stage !== 'kiln' || kilnMode === 'builtin') spin += (stage === 'ar' ? 0.01 : SPIN) * dt;
+
+  if (stage === 'depth') doDepth();
+  if (stage === 'shape') doShape();
+  if (stage === 'depth' || stage === 'shape') updateHeight();
+  if (stage === 'ar') doARMove();
+
+  if (potDirty) { buildPotMesh(); potDirty = false; }
+
+  if (!(stage === 'kiln' && kilnMode === 'video')) {
+    push();
+    if (stage === 'ar') {
+      translate(ar.x - width / 2, ar.y - height / 2);
+      scale(S * ar.s);
+      rotateX(TILT * 0.5);
+      translate(0, -BASE_Y);
+      drawContactShadow(true);
+    } else {
+      const wide = width > 900;
+      const shiftX = stage === 'intro' && wide ? width * 0.18 : (stage === 'reveal' && width > 640 ? -width * 0.09 : 0);
+      const shiftY = width <= 640 && (stage === 'intro' || stage === 'reveal') ? -height * 0.17 : 0;
+      translate(shiftX, shiftY);
+      scale(S);
+      translate(0, OFFSET_Y);
+      rotateX(TILT);
+    }
+    push();
+    rotateY(spin);
+    if (stage !== 'ar') { drawWheel(); drawContactShadow(false); }
+    drawPot();
+    pop();
+    pop();
+  }
+
+  noLights();
+  if (stage === 'kiln' && kilnMode === 'builtin') updateKiln(dt);
+  drawHandLayer();
+
+  if (captureReq && stage === 'ar') { captureReq = false; capture(); }
+  if (frameCount % 6 === 0) updateMeter();
+  if (frameCount % 20 === 0 && handOn) { setStatus(); noHandHint(); }
+}
+
+// ---------- 陶土資料：外壁、內壁兩條半徑輪廓（旋轉曲面） ----------
+// radii[j]  外壁半徑，j = 0（底）到 N-1（口）
+// innerR[j] 內壁半徑，只有在 floorJ 以上（已經挖開的部分）才有意義
+// floorJ    內部底面所在的高度（以環數計，可以是小數）
+// clayH     器身高度；依體積守恆自動變化：拉寬會變矮，收窄會變高
+function ringY(j) { return BASE_Y - (j / (N - 1)) * clayH; }
+function hasHole() { return floorJ < N - 1.2; }
+function floorMinJ() { return FLOOR_THICK / clayH * (N - 1); }   // 底部至少保留的厚度
+
+function clearTexture() { ridgeO = new Array(N).fill(0); ridgeI = new Array(N).fill(0); }
+
+// 挖深時，內壁還沒被手撐開的地方用的預設開口
+function defaultInner() { innerR = radii.map(r => Math.max(14, r * 0.5)); }
+
+// 這一層實際的內壁半徑：接近底部時收成圓弧，形成碗狀的內底
+function innerEff(t) {
+  const r = sampleIdx(innerR, t);
+  const k = constrain((t - floorJ) / BOWL_RINGS, 0, 1);
+  return r * Math.sqrt(k);
+}
+
+function sampleIdx(arr, t) {
+  const f = constrain(t, 0, N - 1);
+  const a = Math.floor(f), b = Math.min(a + 1, N - 1);
+  return lerp(arr[a], arr[b], f - a);
+}
+
+// 陶土的截面積總和（外圓面積減掉挖空的部分），用來做體積守恆
+function crossArea() {
+  let A = 0;
+  for (let j = 0; j < N; j++) {
+    const ri = j > floorJ ? innerEff(j) : 0;
+    A += radii[j] * radii[j] - ri * ri;
+  }
+  return A / N;
+}
+
+function setRestVolume() { area0 = crossArea(); height0 = clayH; }
+
+// 體積 ≈ 截面積 × 高度。截面積變大，高度就降低；變小就升高。
+// 指數小於 1 讓變化「適度」，再用阻尼慢慢靠近目標，不會突然拉長
+function updateHeight() {
+  const A = crossArea();
+  const target = constrain(height0 * Math.pow(area0 / Math.max(A, 1), HEIGHT_K), H_MIN, H_MAX);
+  const d = target - clayH;
+  if (Math.abs(d) > 0.05) {
+    clayH += constrain(d * 0.06 * frameDt, -0.8 * frameDt, 0.8 * frameDt);
+    potDirty = true;
+  }
+}
+
+function resetClay() {
+  clayH = H_START;
+  radii = Array.from({ length: N }, (_, j) => START_R - 4 * (j / (N - 1)));
+  defaultInner();
+  clearTexture();
+  floorJ = N - 1;
+  draft = null;
+  setRestVolume();
+  potDirty = true;
+}
+
+function introPot() {
+  clayH = 280;
+  radii = Array.from({ length: N }, (_, j) => {
+    const t = j / (N - 1);
+    return t < 0.7 ? 60 + 56 * Math.sin(Math.PI * t / 0.7) : 60 + 24 * ((t - 0.7) / 0.3) ** 2;
+  });
+  innerR = radii.map(r => r - WALL);
+  clearTexture();
+  for (let j = 0; j < N; j++) { ridgeO[j] = 0.9 * Math.sin(j * 1.7) * Math.sin(j * 0.31); ridgeI[j] = 0.7 * Math.sin(j * 1.3); }
+  floorJ = 6;
+  setRestVolume();
+  potDirty = true;
+}
+
+function demoShape() {
+  const shapes = [
+    t => (t < 0.72 ? 58 + 60 * Math.sin(Math.PI * t / 0.72) : 58 + 32 * ((t - 0.72) / 0.28) ** 2),
+    t => 50 + 94 * Math.sin(t * Math.PI / 2),
+    t => 74 + 10 * t - 8 * Math.sin(Math.PI * t),
+    t => 62 + 48 * Math.sin(Math.PI * Math.min(1, t * 1.25)) - 10 * t,
+  ];
+  const f = shapes[Math.floor(Math.random() * shapes.length)];
+  radii = Array.from({ length: N }, (_, j) => constrain(f(j / (N - 1)), MIN_R, MAX_R));
+  innerR = radii.map(r => r - WALL);
+  if (!hasHole()) floorJ = Math.max(floorMinJ(), 6);
+  setRestVolume();
+  potDirty = true;
+}
+
+function sampleAt(arr, wy) { return sampleIdx(arr, (BASE_Y - wy) / clayH * (N - 1)); }
+function radiusAtY(wy) { return sampleAt(radii, wy); }
+function innerAtY(wy) { return sampleAt(innerR, wy); }
+function yToIdx(wy) { return (BASE_Y - wy) / clayH * (N - 1); }
+
+// 螢幕座標 → 陶土所在的 3D 平面（通過轉軸、面向鏡頭的平面），扣掉縮放、位移與俯角
+function toWorld(sx, sy) {
+  return { x: (sx - width / 2) / S, y: ((sy - height / 2) / S - OFFSET_Y) / Math.cos(TILT) };
+}
+
+// 局部變形：以接觸高度為中心，用 smoothstep 形狀的權重往上下衰減
+function falloff(d, radius) {
+  const x = constrain(1 - Math.abs(d) / radius, 0, 1);
+  return x * x * (3 - 2 * x);
+}
+
+// 依「手指伸進陶土多深」決定力道，剛碰到時很輕，避免一碰就跳
+function pressure(pen) { const x = constrain(pen / 18, 0, 1); return x * x * (3 - 2 * x); }
+
+function deform(arr, f, want, force, R = INFLUENCE) {
+  const j0 = Math.max(0, Math.floor(f - R)), j1 = Math.min(N - 1, Math.ceil(f + R));
+  for (let j = j0; j <= j1; j++) {
+    const w = falloff(j - f, R) * (j <= 1 ? 0.25 : 1);   // 最底部幾乎不動，陶土穩穩貼著轉盤
+    if (w <= 0) continue;
+    arr[j] += constrain((want - arr[j]) * w * STRENGTH * force * frameDt, -MAX_STEP * frameDt, MAX_STEP * frameDt);
+  }
+}
+
+// 每次變形後的整理：保持壁厚、限制坡度、輕微平滑，避免尖角、穿透與網格翻轉
+function relaxProfile(side) {
+  for (let j = 0; j < N; j++) {
+    radii[j] = constrain(radii[j], MIN_R, MAX_R);
+    if (j > floorJ) {
+      if (innerR[j] > radii[j] - MIN_WALL) {
+        if (side === 'in') radii[j] = Math.min(MAX_R, innerR[j] + MIN_WALL);
+        else innerR[j] = radii[j] - MIN_WALL;
+      }
+      innerR[j] = Math.max(6, innerR[j]);
+    }
+  }
+  for (const arr of [radii, innerR]) {
+    const old = arr.slice();
+    for (let j = 1; j < N - 1; j++) arr[j] += 0.04 * (old[j - 1] + old[j + 1] - 2 * old[j]);
+    // 相鄰兩環的半徑差不能太大，避免出現階梯或尖角。
+    // 超過的部分由上下兩環平均分攤，形狀不會偏向某一邊；最底那環保持不動，陶土穩穩貼著轉盤
+    const lim = 3.2;
+    for (let it = 0; it < 3; it++) {
+      for (let j = 1; j < N; j++) {
+        const d = arr[j] - arr[j - 1];
+        if (Math.abs(d) <= lim) continue;
+        const ex = (Math.abs(d) - lim) * Math.sign(d);
+        if (j - 1 === 0) arr[j] -= ex;
+        else { arr[j] -= ex / 2; arr[j - 1] += ex / 2; }
+      }
+    }
+  }
+}
+
+// ---------- 步驟 1：開孔（真的挖出有厚度的空腔） ----------
+function doDepth() {
+  const top = N - 1;
+  for (const c of contacts) {
+    const w = toWorld(c.x, c.y);
+    const ax = Math.abs(w.x);
+    if (ax > radii[top] * 0.85 || w.y < ringY(top) - 40) continue;
+    c.near = true;
+    const target = constrain(yToIdx(w.y), floorMinJ(), top);
+    if (target < floorJ - 0.02) {
+      floorJ = Math.max(target, floorJ - 0.05 * frameDt);   // 慢慢往下，不會一次挖到底
+      c.active = true;
+      potDirty = true;
+    }
+    // 手指離中心越遠，開口被撐得越寬（但保留最薄壁厚）
+    if (hasHole()) {
+      const want = ax + 6;
+      for (let j = Math.ceil(floorJ); j < N; j++) {
+        const maxIn = radii[j] - MIN_WALL;
+        const tgt = Math.min(maxIn, Math.max(innerR[j], want * (0.75 + 0.25 * (j - floorJ) / Math.max(1, top - floorJ))));
+        if (tgt > innerR[j] + 0.05) { innerR[j] += (tgt - innerR[j]) * 0.03 * frameDt; potDirty = true; c.active = true; }
+      }
+    }
+  }
+}
+
+// ---------- 步驟 2：塑形（雙手，內壁外壁都可以） ----------
+// 外壁：按壓往內收、捏住往外拉；內壁：伸進開口按壓往外撐、捏住往內收
+function groove(arr, f) {
+  const j0 = Math.round(f);
+  for (let j = j0 - 1; j <= j0 + 1; j++) {
+    if (j < 1 || j >= N) continue;
+    arr[j] = constrain(arr[j] + (Math.random() - 0.5) * 0.25, -1.6, 1.6);
+  }
+}
+
+function doShape() {
+  let any = false;
+  const seen = new Set();
+  for (const c of contacts) {
+    seen.add(c.key);
+    const st = engage[c.key] || (engage[c.key] = { on: null });
+    const w = toWorld(c.x, c.y);
+    const f = yToIdx(w.y);
+    if (f < -1 || f > N) { st.on = null; continue; }
+    const ro = sampleIdx(radii, f), ri = sampleIdx(innerR, f), ax = Math.abs(w.x);
+    const holeHere = hasHole() && f > floorJ + BOWL_RINGS;
+    // 必須從某一面牆附近開始接觸；手只是從前面經過，不會把陶土壓壞
+    if (!st.on) {
+      if (ax > ro - 18 && ax < ro + 30) st.on = 'out';
+      else if (holeHere && ax > ri - 30 && ax < ri + 8) st.on = 'in';
+      else continue;
+    }
+    if (st.on === 'out' && ax > ro + 80) { st.on = null; continue; }
+    if (st.on === 'in' && (!holeHere || ax < ri - 70 || ax > ro + 10)) { st.on = null; continue; }
+    c.near = true;
+    if (st.on === 'out') {
+      const want = constrain(ax, MIN_R, MAX_R);
+      if (!c.grab && want >= ro) continue;
+      deform(radii, f, want, c.grab ? 0.8 : pressure(ro - ax), want > ro ? INFLUENCE * 1.6 : INFLUENCE);
+      groove(ridgeO, f);
+    } else {
+      const want = constrain(ax, 8, MAX_R - MIN_WALL);
+      if (!c.grab && want <= ri) continue;
+      deform(innerR, f, want, c.grab ? 0.8 : pressure(ax - ri));
+      groove(ridgeI, f);
+    }
+    relaxProfile(st.on);
+    c.active = true;
+    any = true;
+  }
+  for (const k of Object.keys(engage)) if (!seen.has(k)) delete engage[k];
+  if (any) potDirty = true;
+}
+
+// ---------- 網格：一條連續的截面輪廓轉一圈 ----------
+// 輪廓順序：外壁（底→口）→ 圓弧唇口 → 內壁（口→底）→ 碗狀內底中心
+// uv.x = 繞一圈的角度，uv.y = 材料位置：外壁 0–1、唇口 1–1.2、內壁 2–3
+// 材料座標跟著陶土的環走，所以紋理會跟著變形移動，不會在表面滑動
+function buildProfile() {
+  const P = [];
+  const top = N - 1;
+  for (let j = 0; j < N; j++) {
+    const throwLine = 0.55 * Math.sin(j * 2.3) + 0.35 * Math.sin(j * 0.9 + 1.3);
+    P.push({ r: radii[j] + ridgeO[j] + throwLine, y: ringY(j), v: j / top, outer: true });
+  }
+  const yTop = ringY(top), ro = P[top].r;
+  if (hasHole()) {
+    const ri = innerEff(top) + ridgeI[top];
+    const mid = (ro + ri) / 2, hw = Math.max(2, (ro - ri) / 2);
+    for (let a = 1; a <= 5; a++) {
+      const t = a / 6 * Math.PI;
+      P.push({ r: mid + hw * Math.cos(t), y: yTop - Math.min(hw, 7) * Math.sin(t), v: 1 + 0.2 * a / 6 });
+    }
+    const steps = [];
+    for (let t = top; t > floorJ + BOWL_RINGS; t -= 1) steps.push(t);
+    for (let k = 0; k <= 8; k++) steps.push(floorJ + BOWL_RINGS * (1 - k / 8) ** 1.5);
+    for (const t of steps) {
+      const r = innerEff(t) + (t > floorJ + BOWL_RINGS ? sampleIdx(ridgeI, t) : 0);
+      P.push({ r: Math.max(0, r), y: BASE_Y - t / top * clayH, v: 2 + t / top });
+    }
+  } else {
+    for (let a = 1; a <= 8; a++) {
+      const s = a / 8;
+      P.push({ r: ro * (1 - s), y: yTop - 5 * Math.sin(s * Math.PI / 2), v: 1 + 0.2 * s });
+    }
+  }
+  // 法線：由輪廓切線轉 90°，外壁朝外、內壁朝內、唇口朝上
+  for (let i = 0; i < P.length; i++) {
+    const a = P[Math.max(0, i - 1)], b = P[Math.min(P.length - 1, i + 1)];
+    const dr = b.r - a.r, dy = b.y - a.y, l = Math.hypot(dr, dy) || 1;
+    P[i].nr = -dy / l;
+    P[i].ny = dr / l;
+  }
+  return P;
+}
+
+function buildPotMesh() {
+  const P = buildProfile();
+  const g = potGeom;
+  g.vertices = [];
+  g.vertexNormals = [];
+  g.uvs = [];
+  g.faces = [];
+  g.edges = [];
+  const cols = SEG + 1;
+  for (let i = 0; i < P.length; i++) {
+    const p = P[i];
+    for (let k = 0; k <= SEG; k++) {
+      const th = k / SEG * TWO_PI, c = Math.cos(th), s = Math.sin(th);
+      const r = p.r + (p.outer ? 0.35 * Math.sin(3 * th + i * 0.4) : 0);
+      g.vertices.push(createVector(r * c, p.y, r * s));
+      g.vertexNormals.push(createVector(p.nr * c, p.ny, p.nr * s));
+      g.uvs.push(k / SEG, p.v);
+    }
+  }
+  for (let i = 0; i < P.length - 1; i++) {
+    for (let k = 0; k < SEG; k++) {
+      const a = i * cols + k, b = a + cols;
+      g.faces.push([a, b, a + 1], [b, b + 1, a + 1]);
+    }
+  }
+  // 只有形狀改變時才重新上傳頂點到 GPU，其餘時間沿用同一份網格
+  freeGeometry(g);
+}
+
+// ---------- 繪圖 ----------
+function useClayShader(mode) {
+  shader(clayShader);
+  clayShader.setUniform('uMode', mode);
+  clayShader.setUniform('uHeat', stage === 'kiln' ? kilnHeat() : 0);
+  clayShader.setUniform('uFloorV', floorJ / (N - 1));
+  clayShader.setUniform('uClay', [0.74, 0.6, 0.49]);
+  clayShader.setUniform('uWet', stage === 'kiln' ? 0.2 : 1);
+  if (mode === 1 && glaze) {
+    clayShader.setUniform('uTex', glaze.g);
+    clayShader.setUniform('uTile', [glaze.tu, 1]);
+    clayShader.setUniform('uRim', glaze.rim.map(v => v / 255));
+    clayShader.setUniform('uInner', glaze.inner.map(v => v / 255));
+  }
+}
+
+function drawPot() {
+  noStroke();
+  const fired = stage === 'intro' || stage === 'reveal' || stage === 'ar';
+  useClayShader(fired ? 1 : 0);
+  model(potGeom);
+  resetShader();
+}
+
+function drawWheel() {
+  push();
+  translate(0, BASE_Y + 11, 0);
+  noStroke();
+  useClayShader(2);
+  cylinder(204, 22, 64, 1);
+  resetShader();
+  pop();
+  // 轉盤上一圈圈的泥痕
+  push();
+  translate(0, BASE_Y - 0.6, 0);
+  rotateX(HALF_PI);
+  noFill();
+  stroke(150, 128, 106, 110);
+  strokeWeight(1.1);
+  for (const r of [128, 156, 182]) circle(0, 0, r * 2, 72);
+  pop();
+}
+
+// 接觸陰影：陶土底部和轉盤之間一圈柔和的暗影，讓陶土「坐」在轉盤上
+function makeShadowTexture() {
+  const g = createGraphics(128, 128);
+  g.pixelDensity(1);
+  const ctx = g.drawingContext;
+  const gr = ctx.createRadialGradient(64, 64, 0, 64, 64, 64);
+  gr.addColorStop(0, 'rgba(40,24,10,0.55)');
+  gr.addColorStop(0.6, 'rgba(40,24,10,0.28)');
+  gr.addColorStop(1, 'rgba(40,24,10,0)');
+  ctx.fillStyle = gr;
+  ctx.fillRect(0, 0, 128, 128);
+  return g;
+}
+
+function drawContactShadow(ar) {
+  const gl = drawingContext;
+  gl.depthMask(false);
+  push();
+  translate(0, BASE_Y - 0.8, 0);
+  rotateX(HALF_PI);
+  noStroke();
+  texture(shadowTex);
+  const r = ar ? Math.max(...radii) * 1.5 : radii[0] * 1.45;
+  plane(r * 2, r * 2);
+  pop();
+  gl.depthMask(true);
+}
+
+// 舊版把手程式已移除；保留空函式讓其他地方的呼叫不出錯
+function toggleTwin() {}
+
+// ---------- 手部偵測 ----------
+const BONES = [[0,1],[1,2],[2,3],[3,4],[0,5],[5,6],[6,7],[7,8],[5,9],[9,10],[10,11],[11,12],[9,13],[13,14],[14,15],[15,16],[13,17],[17,18],[18,19],[19,20],[0,17]];
+
+function mapKP(x, y, vw, vh) {
+  const sc = Math.max(width / vw, height / vh);
+  const gain = stage === 'ar' ? 1 : 1.2;
+  return { x: width / 2 + (x - vw / 2) * sc * gain, y: height / 2 + (y - vh / 2) * sc * gain };
+}
+
+function readHands() {
+  handViews = [];
+  if (!handOn || !handReady) return;
+  const v = $('cam');
+  const vw = v.videoWidth || 640, vh = v.videoHeight || 480;
+  hands.forEach((h, i) => {
+    const kp = h.keypoints;
+    if (!kp || kp.length < 21) return;
+    const key = (h.handedness || '') + i;
+    const prev = smoothKP[key];
+    const pts = kp.map((p, k) => {
+      const m = mapKP(vw - p.x, p.y, vw, vh);
+      if (prev && prev[k]) { m.x = lerp(prev[k].x, m.x, 0.3); m.y = lerp(prev[k].y, m.y, 0.3); }
+      return m;
+    });
+    smoothKP[key] = pts;
+    // 連續多幀都判斷成同一個手勢才算數，避免一閃而過的誤判
+    const hist = poseHist[key] || (poseHist[key] = []);
+    hist.push(classify(kp));
+    if (hist.length > 8) hist.shift();
+    const counts = {};
+    hist.forEach(p => { counts[p] = (counts[p] || 0) + 1; });
+    const top = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
+    const pose = top && top[1] >= 6 ? top[0] : 'other';
+    const size = d2(kp[0], kp[9]) || 1;
+    const pinched = d2(kp[4], kp[8]) / size < 0.32;
+    handViews.push({ key, pts, raw: kp, pose, pinched });
+  });
+}
+
+function d2(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
+const mid = (a, b) => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
+
+function classify(kp) {
+  const size = d2(kp[0], kp[9]) || 1;
+  const ratio = (tip, pip) => d2(kp[0], kp[tip]) / (d2(kp[0], kp[pip]) || 1);
+  const ext = r => r > 1.15, curl = r => r < 1.0;
+  const rI = ratio(8, 6), rM = ratio(12, 10), rR = ratio(16, 14), rP = ratio(20, 18);
+  const pinchGap = d2(kp[4], kp[8]) / size;
+  const thumbUp = kp[4].y < kp[3].y && kp[3].y < kp[2].y && (kp[5].y - kp[4].y) > 0.55 * size;
+  if (thumbUp && curl(rI) && curl(rM) && curl(rR) && curl(rP)) return 'thumbs';
+  if (ext(rI) && ext(rM) && curl(rR) && curl(rP) && d2(kp[8], kp[12]) / size > 0.28 && pinchGap > 0.5) return 'peace';
+  if (ext(rI) && curl(rM) && curl(rR) && curl(rP) && pinchGap > 0.5) return 'one';
+  return 'other';
+}
+
+// 接觸點：捏住時是拇指與食指之間；沒捏時是食指和中指指尖
+function gatherContacts() {
+  contacts = [];
+  const gmap = gestureMap();
+  for (const h of handViews) {
+    if (gmap[h.pose]) continue;   // 這一步有用到的手勢就不當成捏陶
+    const P = h.pts;
+    const c = h.pinched ? mid(P[4], P[8]) : mid(P[8], P[12]);
+    contacts.push({ x: c.x, y: c.y, grab: h.pinched, key: h.key, hand: h });
+  }
+  for (const [id, p] of ptrs) contacts.push({ x: p.x, y: p.y, grab: true, key: 'm' + id });
+}
+
+function gestureMap() {
+  if ($('shot').classList.contains('open')) return { thumbs: saveShot, one: closeShot };
+  return {
+    intro: { thumbs: startFlow },
+    depth: { thumbs: nextStage },
+    shape: { thumbs: nextStage },
+    kiln: { thumbs: nextStage },
+    reveal: { thumbs: nextStage, one: refire },
+    ar: { peace: startCountdown },
+  }[stage] || {};
+}
+
+function handleGestures() {
+  const now = millis();
+  if (now < quietUntil) { gestureHold = null; return; }
+  const map = gestureMap();
+  let seen = null, at = null;
+  for (const h of handViews) if (map[h.pose]) { seen = h.pose; at = h; break; }
+  if (gestureLock) {
+    if (seen === gestureLock) gestureLockAt = now;
+    else if (now - gestureLockAt > 400) gestureLock = null;
+  }
+  if (!seen || seen === gestureLock) { gestureHold = null; return; }
+  if (!gestureHold || gestureHold.name !== seen) gestureHold = { name: seen, start: now };
+  gestureHold.at = at;
+  gestureHold.p = (now - gestureHold.start) / HOLD[seen];
+  if (gestureHold.p >= 1) {
+    gestureLock = seen;
+    gestureLockAt = now;
+    gestureHold = null;
+    map[seen]();
+  }
+}
+
+const POSE_LABEL = { thumbs: 'Thumbs up', peace: 'Peace', one: 'One' };
+
+function drawHandLayer() {
+  const W = window.innerWidth, H = window.innerHeight;
+  hlx.clearRect(0, 0, W, H);
+  const interactive = ['depth', 'shape', 'ar'].includes(stage);
+  if (!handViews.length && ptrs.size === 0 && hover && interactive) ring(hover.x, hover.y, 10, false, false);
+  for (const h of handViews) {
+    drawSkeleton(h.pts);
+  }
+  if (interactive) for (const c of contacts) {
+    if (c.hand && !(c.active || c.near)) continue;   // 手的接觸點只在碰到陶土時才顯示
+    ring(c.x, c.y, c.grab ? 8 : 10, c.grab, c.active || c.near);
+  }
+  if (gestureHold && gestureHold.at) {
+    const c = gestureHold.at.pts[9];
+    label(c.x, c.y + 64, POSE_LABEL[gestureHold.name] || '');
+    hlx.lineWidth = 3;
+    hlx.strokeStyle = 'rgba(244,240,234,0.9)';
+    hlx.beginPath(); hlx.arc(c.x, c.y, 46, 0, Math.PI * 2); hlx.stroke();
+    hlx.strokeStyle = '#411e03';
+    hlx.beginPath(); hlx.arc(c.x, c.y, 46, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * Math.min(1, gestureHold.p)); hlx.stroke();
+  }
+}
+
+// 細線手部骨架：淡淡的手掌面、細骨線、小關節點，指尖是空心小圓
+function drawSkeleton(P) {
+  const size = Math.hypot(P[0].x - P[9].x, P[0].y - P[9].y) || 80;
+  hlx.save();
+  hlx.lineCap = 'round';
+  hlx.lineJoin = 'round';
+  // 手掌面
+  hlx.fillStyle = 'rgba(244,240,234,0.28)';
+  hlx.beginPath();
+  [0, 1, 5, 9, 13, 17].forEach((i, k) => (k ? hlx.lineTo(P[i].x, P[i].y) : hlx.moveTo(P[i].x, P[i].y)));
+  hlx.closePath();
+  hlx.fill();
+  // 骨線：外層淡色描邊讓線在任何背景上都看得到
+  const path = () => { hlx.beginPath(); for (const [a, b] of BONES) { hlx.moveTo(P[a].x, P[a].y); hlx.lineTo(P[b].x, P[b].y); } };
+  path();
+  hlx.strokeStyle = 'rgba(244,240,234,0.85)';
+  hlx.lineWidth = 4;
+  hlx.stroke();
+  path();
+  hlx.strokeStyle = 'rgba(65,30,3,0.85)';
+  hlx.lineWidth = 1.4;
+  hlx.stroke();
+  // 關節
+  P.forEach((p, i) => {
+    const tip = [4, 8, 12, 16, 20].includes(i);
+    hlx.beginPath();
+    hlx.arc(p.x, p.y, tip ? Math.max(4, size * 0.05) : Math.max(2.2, size * 0.025), 0, Math.PI * 2);
+    if (tip) {
+      hlx.fillStyle = 'rgba(244,240,234,0.9)';
+      hlx.fill();
+      hlx.strokeStyle = '#411e03';
+      hlx.lineWidth = 1.4;
+      hlx.stroke();
+    } else {
+      hlx.fillStyle = i === 0 ? '#846851' : '#411e03';
+      hlx.fill();
+    }
+  });
+  hlx.restore();
+}
+
+// 半透明手模型（目前沒用到）：先在暫存畫布上把手掌和手指畫成一整塊實心的形狀，
+// 再加上明暗，最後整塊以半透明疊上去——重疊的地方不會變深，也看不到關節
+const FINGERS = [[1, 2, 3, 4], [5, 6, 7, 8], [9, 10, 11, 12], [13, 14, 15, 16], [17, 18, 19, 20]];
+let handBuf = null, hbx = null;
+function drawVirtualHand(P) {
+  const W = window.innerWidth, H = window.innerHeight;
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  if (!handBuf || handBuf.width !== Math.round(W * dpr) || handBuf.height !== Math.round(H * dpr)) {
+    handBuf = document.createElement('canvas');
+    handBuf.width = Math.round(W * dpr);
+    handBuf.height = Math.round(H * dpr);
+    hbx = handBuf.getContext('2d');
+  }
+  hbx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  hbx.clearRect(0, 0, W, H);
+  const size = Math.hypot(P[0].x - P[9].x, P[0].y - P[9].y) || 80;
+  const w = size * 0.27;
+  hbx.globalCompositeOperation = 'source-over';
+  hbx.fillStyle = hbx.strokeStyle = '#cfe0f2';
+  // 手掌（含手腕）：用平滑曲線圍出來，沒有稜角
+  const wrist = { x: P[0].x - (P[9].x - P[0].x) * 0.3, y: P[0].y - (P[9].y - P[0].y) * 0.3 };
+  smoothBlob(hbx, [wrist, P[1], P[2], P[5], P[9], P[13], P[17]], w * 0.55);
+  // 手指：沿著關節點畫一條平滑曲線，再沿曲線做出一整條連續變細的外形
+  FINGERS.forEach((f, fi) => {
+    const chain = (fi === 0 ? [P[1], P[2], P[3], P[4]] : [P[f[0]], P[f[1]], P[f[2]], P[f[3]]]);
+    const base = w * (fi === 0 ? 1.05 : fi === 4 ? 0.78 : 0.95);
+    smoothFinger(hbx, chain, base * 0.5, base * 0.36);
+  });
+  // 明暗：只畫在手的形狀裡面
+  hbx.globalCompositeOperation = 'source-atop';
+  const cx = (P[0].x + P[9].x) / 2, cy = (P[0].y + P[9].y) / 2;
+  let g = hbx.createRadialGradient(cx - size * 0.35, cy - size * 0.55, size * 0.1, cx, cy, size * 1.7);
+  g.addColorStop(0, 'rgba(255,255,255,0.95)');
+  g.addColorStop(0.45, 'rgba(214,228,244,0.2)');
+  g.addColorStop(1, 'rgba(96,124,160,0.75)');
+  hbx.fillStyle = g;
+  hbx.fillRect(0, 0, W, H);
+  hbx.globalCompositeOperation = 'source-over';
+
+  hlx.save();
+  hlx.globalAlpha = 0.72;
+  hlx.shadowColor = 'rgba(43,26,12,0.22)';
+  hlx.shadowBlur = size * 0.3;
+  hlx.shadowOffsetY = size * 0.1;
+  hlx.setTransform(1, 0, 0, 1, 0, 0);
+  hlx.drawImage(handBuf, 0, 0);
+  hlx.restore();
+}
+
+// 把幾個點連成平滑曲線（Catmull-Rom），回傳細分後的點
+function spline(pts, steps) {
+  const out = [];
+  for (let i = 0; i < pts.length - 1; i++) {
+    const p0 = pts[Math.max(0, i - 1)], p1 = pts[i], p2 = pts[i + 1], p3 = pts[Math.min(pts.length - 1, i + 2)];
+    for (let t = 0; t < 1; t += 1 / steps) {
+      const t2 = t * t, t3 = t2 * t;
+      out.push({
+        x: 0.5 * (2 * p1.x + (-p0.x + p2.x) * t + (2 * p0.x - 5 * p1.x + 4 * p2.x - p3.x) * t2 + (-p0.x + 3 * p1.x - 3 * p2.x + p3.x) * t3),
+        y: 0.5 * (2 * p1.y + (-p0.y + p2.y) * t + (2 * p0.y - 5 * p1.y + 4 * p2.y - p3.y) * t2 + (-p0.y + 3 * p1.y - 3 * p2.y + p3.y) * t3),
+      });
+    }
+  }
+  out.push(pts[pts.length - 1]);
+  return out;
+}
+
+function smoothFinger(ctx, chain, r0, r1) {
+  const c = spline(chain, 8);
+  const L = [], R = [];
+  c.forEach((p, i) => {
+    const a = c[Math.max(0, i - 1)], b = c[Math.min(c.length - 1, i + 1)];
+    let tx = b.x - a.x, ty = b.y - a.y;
+    const l = Math.hypot(tx, ty) || 1;
+    tx /= l; ty /= l;
+    const r = r0 + (r1 - r0) * (i / (c.length - 1));
+    L.push({ x: p.x - ty * r, y: p.y + tx * r });
+    R.push({ x: p.x + ty * r, y: p.y - tx * r });
+  });
+  const tip = c[c.length - 1], prev = c[c.length - 2];
+  const ang = Math.atan2(tip.y - prev.y, tip.x - prev.x);
+  ctx.beginPath();
+  ctx.moveTo(L[0].x, L[0].y);
+  L.forEach(p => ctx.lineTo(p.x, p.y));
+  ctx.arc(tip.x, tip.y, r1, ang + Math.PI / 2, ang - Math.PI / 2, true);
+  for (let i = R.length - 1; i >= 0; i--) ctx.lineTo(R[i].x, R[i].y);
+  const a0 = Math.atan2(c[1].y - c[0].y, c[1].x - c[0].x);
+  ctx.arc(c[0].x, c[0].y, r0, a0 - Math.PI / 2, a0 + Math.PI / 2, true);
+  ctx.closePath();
+  ctx.fill();
+}
+
+// 圓潤的手掌：向外擴一點，再用二次曲線把角磨圓
+function smoothBlob(ctx, pts, pad) {
+  const cx = pts.reduce((a, p) => a + p.x, 0) / pts.length, cy = pts.reduce((a, p) => a + p.y, 0) / pts.length;
+  const q = pts.map(p => { const dx = p.x - cx, dy = p.y - cy, l = Math.hypot(dx, dy) || 1; return { x: p.x + dx / l * pad, y: p.y + dy / l * pad }; });
+  ctx.beginPath();
+  const m = (a, b) => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
+  let start = m(q[q.length - 1], q[0]);
+  ctx.moveTo(start.x, start.y);
+  for (let i = 0; i < q.length; i++) {
+    const n = m(q[i], q[(i + 1) % q.length]);
+    ctx.quadraticCurveTo(q[i].x, q[i].y, n.x, n.y);
+  }
+  ctx.closePath();
+  ctx.fill();
+}
+
+function ring(x, y, r, filled, hot) {
+  hlx.lineWidth = 2;
+  hlx.strokeStyle = hot ? '#411e03' : 'rgba(65,30,3,0.55)';
+  hlx.fillStyle = hot ? 'rgba(138,137,95,0.85)' : 'rgba(244,240,234,0.75)';
+  hlx.beginPath(); hlx.arc(x, y, r, 0, Math.PI * 2);
+  if (filled || hot) hlx.fill();
+  hlx.stroke();
+}
+
+function label(x, y, text) {
+  hlx.font = '500 11px Jost, sans-serif';
+  const t = text.toUpperCase();
+  const w = hlx.measureText(t).width + 20;
+  hlx.fillStyle = '#411e03';
+  hlx.fillRect(x - w / 2, y - 11, w, 22);
+  hlx.fillStyle = '#f4f0ea';
+  hlx.textAlign = 'center';
+  hlx.textBaseline = 'middle';
+  hlx.fillText(t, x, y + 1);
+}
+
+// ---------- 鏡頭與模型 ----------
+function loadScript(src) {
+  return new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = src;
+    s.onload = resolve;
+    s.onerror = () => reject(new Error('load'));
+    document.head.appendChild(s);
+  });
+}
+
+async function enableHands() {
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { cameraBlocked(); return false; }
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false });
+  } catch (e) {
+    cameraBlocked();
+    return false;
+  }
+  const v = $('cam');
+  v.srcObject = stream;
+  v.classList.add('pip');
+  await new Promise(res => {
+    if (v.readyState >= 2) return res();
+    v.addEventListener('loadeddata', res, { once: true });
+    setTimeout(res, 3000);
+  });
+  v.play().catch(() => {});
+  // ml5 會讀 video 的 width/height 屬性；沒設的話是 0，就偵測不到手
+  v.width = v.videoWidth || 640;
+  v.height = v.videoHeight || 480;
+  handOn = true;
+  setStatus();
+  toast('Loading hand model — 手勢模型載入中…');
+  try {
+    if (!window.ml5) await loadScript(ML5_URL);
+    handPose = ml5.handPose({ maxHands: 2, flipped: false }, () => {
+      handReady = true;
+      setStatus();
+      handPose.detectStart(v, r => { hands = r; });
+      toast('Ready — 把雙手放進鏡頭，比讚開始');
+    });
+  } catch (e) {
+    toast('手勢模型載入失敗，請確認網路後重新整理；先改用滑鼠。', 5000);
+    handOn = false;
+    setStatus();
+    return false;
+  }
+  return true;
+}
+
+function cameraBlocked() {
+  toast('這裡無法開啟鏡頭（預覽環境會擋鏡頭）。用 Live Server 或 GitHub Pages 開就能用手勢；現在先用滑鼠操作。', 6500);
+}
+
+function setStatus() {
+  const live = handOn && handReady;
+  $('status').classList.toggle('live', live);
+  $('statusText').textContent = live ? `Hands · ${handViews.length}` : handOn ? 'Loading' : 'Mouse';
+}
+
+let lastHandAt = 0;
+function noHandHint() {
+  if (handViews.length) { lastHandAt = millis(); return; }
+  if (handReady && millis() - lastHandAt > 5000) {
+    lastHandAt = millis();
+    toast('還沒看到手：把整隻手（含手腕）放進右下角的鏡頭畫面，離鏡頭約 40–60 公分，光線要夠亮。', 3500);
+  }
+}
+
+// ---------- 滑鼠／觸控 ----------
+function bindPointers(el) {
+  el.addEventListener('pointerdown', e => {
+    el.setPointerCapture(e.pointerId);
+    ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY, sx: e.clientX, sy: e.clientY, ax: ar.x, ay: ar.y, as: ar.s });
+  });
+  el.addEventListener('pointermove', e => {
+    if (e.pointerType === 'mouse') hover = { x: e.clientX, y: e.clientY };
+    const p = ptrs.get(e.pointerId);
+    if (!p) return;
+    p.x = e.clientX; p.y = e.clientY;
+  });
+  const end = e => { ptrs.delete(e.pointerId); };
+  el.addEventListener('pointerup', end);
+  el.addEventListener('pointercancel', end);
+  el.addEventListener('pointerleave', e => { if (e.pointerType === 'mouse') hover = null; });
+  el.addEventListener('wheel', e => {
+    if (stage !== 'ar') return;
+    e.preventDefault();
+    setARScale(ar.s * Math.exp(-e.deltaY * 0.0015));
+  }, { passive: false });
+}
+
+function setARScale(s) { ar.s = constrain(s, 0.25, 1.6); $('sizeRange').value = ar.s; }
+
+// AR：捏住移動陶器；兩隻手都捏住時，拉開或靠近可以縮放
+function doARMove() {
+  const g = contacts.filter(c => c.grab);
+  if (g.length === 0) { arGrab = null; return; }
+  if (g.length >= 2) {
+    const d = Math.hypot(g[0].x - g[1].x, g[0].y - g[1].y) || 1;
+    if (!arGrab || arGrab.n !== 2) arGrab = { n: 2, d, s: ar.s };
+    setARScale(lerp(ar.s, arGrab.s * d / arGrab.d, 0.3));
+    return;
+  }
+  const c = g[0];
+  if (!arGrab || arGrab.n !== 1) arGrab = { n: 1, ox: ar.x - c.x, oy: ar.y - c.y };
+  ar.x = lerp(ar.x, constrain(c.x + arGrab.ox, 0, width), 0.35);
+  ar.y = lerp(ar.y, constrain(c.y + arGrab.oy, 0, height), 0.35);
+}
+
+// ---------- 燒窯 ----------
+function kilnProgress() { return constrain((millis() - kilnStart) / KILN_MS, 0, 1); }
+function kilnHeat() { const k = kilnProgress(); return k < 0.8 ? (k / 0.8) ** 1.4 : 1; }
+
+function startKiln() {
+  glaze = makeGlaze(newSeed());
+  embers = [];
+  kilnStart = millis();
+  kilnMode = 'builtin';
+  setStage('kiln');
+  if (!KILN_VIDEO) return;
+  const v = $('kilnVideo');
+  let started = false, failed = false;
+  const fail = () => {
+    if (failed || started || stage !== 'kiln') return;
+    failed = true;
+    $('app').classList.remove('video');
+    kilnMode = 'builtin';
+  };
+  v.onplaying = () => { started = true; kilnMode = 'video'; $('app').classList.add('video'); };
+  v.onended = () => { if (stage === 'kiln') finishKiln(); };
+  v.onerror = fail;
+  v.src = KILN_VIDEO;
+  v.currentTime = 0;
+  v.play().catch(fail);
+  setTimeout(() => { if (!started) { v.pause(); fail(); } }, 1500);
+}
+
+function updateKiln(dt) {
+  const k = kilnProgress(), h = kilnHeat();
+  const temp = Math.round(25 + (glaze.temp - 25) * Math.min(1, k / 0.8));
+  $('temp').innerHTML = `${temp}<small>°C</small>`;
+  $('meter').style.width = `${k * 100}%`;
+  $('kilnStep').textContent = k < 0.3 ? 'Bisque · 素燒，水分蒸發' : k < 0.8 ? 'Glaze melt · 釉料熔化' : 'Soak · 持溫，窯變成色';
+  document.documentElement.style.setProperty('--heat', h.toFixed(3));
+  const spawn = 1 + h * 4 * dt;
+  for (let i = 0; i < spawn; i++) {
+    embers.push({ x: width / 2 + (Math.random() - 0.5) * Math.min(width * 0.6, 520), y: height * 0.82 + Math.random() * 40, vy: -(1 + Math.random() * 2.5), vx: (Math.random() - 0.5) * 0.6, life: 1, r: 2 + Math.random() * 4 });
+  }
+  const gl = drawingContext;
+  gl.disable(gl.DEPTH_TEST);
+  noStroke();
+  for (const e of embers) {
+    e.x += e.vx * dt + Math.sin((e.y + e.r * 50) * 0.02) * 0.4;
+    e.y += e.vy * dt;
+    e.life -= 0.012 * dt;
+    fill(255, 150 + 80 * e.life, 70, 220 * e.life * (0.3 + h));
+    circle(e.x - width / 2, e.y - height / 2, e.r);
+  }
+  gl.enable(gl.DEPTH_TEST);
+  embers = embers.filter(e => e.life > 0);
+  if (k >= 1) finishKiln();
+}
+
+function finishKiln() {
+  const v = $('kilnVideo');
+  v.pause();
+  v.onplaying = v.onended = v.onerror = null;
+  $('app').classList.remove('video');
+  kilnMode = 'builtin';
+  const f = $('flash');
+  f.classList.remove('go'); void f.offsetWidth; f.classList.add('go');
+  document.documentElement.style.setProperty('--heat', '0');
+  fillCard();
+  setStage('reveal');
+}
+
+function refire() { startKiln(); }
+
+// ---------- 碎形釉紋：每一組只用同一個釉色家族 ----------
+const FAMILIES = [
+  { en: 'Celadon', zh: '青瓷', base: [204, 212, 192], deep: [128, 145, 116], ink: [70, 84, 62] },
+  { en: 'Olive Mist', zh: '橄欖霧', base: [218, 215, 194], deep: [138, 137, 95], ink: [76, 74, 44] },
+  { en: 'Tenmoku', zh: '天目', base: [190, 150, 110], deep: [104, 66, 34], ink: [52, 28, 10] },
+  { en: 'Sandstone', zh: '沙岩', base: [232, 214, 188], deep: [214, 179, 141], ink: [132, 104, 81] },
+  { en: 'Ash Blue', zh: '霧藍', base: [206, 212, 212], deep: [128, 144, 152], ink: [62, 78, 88] },
+  { en: 'Dusty Rose', zh: '灰玫瑰', base: [222, 204, 198], deep: [170, 140, 136], ink: [106, 76, 76] },
+  { en: 'Speckled White', zh: '斑點白瓷', base: [238, 233, 224], deep: [200, 190, 176], ink: [70, 56, 44] },
+];
+const STYLES = [
+  { id: 'julia', en: 'Julia', zh: '茱莉亞' },
+  { id: 'branch', en: 'Branching', zh: '纏枝' },
+  { id: 'mandala', en: 'Mandala', zh: '曼陀羅' },
+  { id: 'agate', en: 'Agate', zh: '瑪瑙' },
+];
+const RAW_CLAY = [176, 140, 112];
+const mix = (p, q, t) => p.map((v, i) => v + (q[i] - v) * t);
+const css = c => `rgb(${c[0] | 0},${c[1] | 0},${c[2] | 0})`;
+
+function newSeed() { return 1000 + Math.floor(Math.random() * 9000); }
+
+function makeGlaze(seed) {
+  randomSeed((Math.imul(seed, 2654435761) >>> 0) % 2147483647);
+  noiseSeed(seed);
+  const fam = random(FAMILIES);
+  const jit = () => random(-6, 6);
+  const base = fam.base.map(v => v + jit()), deep = fam.deep.map(v => v + jit()), ink = fam.ink.map(v => v + jit());
+  // 同色系三段漸層；超過 0–1 時來回折返
+  const ramp = t => {
+    const u = 1 - Math.abs(((t % 2) + 2) % 2 - 1);
+    return u < 0.55 ? mix(base, deep, u / 0.55) : mix(deep, ink, (u - 0.55) / 0.45);
+  };
+  const style = random(STYLES);
+  const g = createGraphics(512, 512);
+  g.pixelDensity(1);
+  const tile = style.id === 'julia' ? patJulia(g, ramp, base, ink)
+    : style.id === 'branch' ? patBranch(g, base, deep, ink)
+    : style.id === 'mandala' ? patMandala(g, base, deep, ink)
+    : patAgate(g, ramp);
+  finishGlaze(g, base, deep, ink);
+  if (glaze && glaze.g && !glaze.removed) { glaze.g.remove(); glaze.removed = true; }
+  return {
+    g, seed, tu: tile.tu, tv: 1,
+    name: `${fam.en} ${style.en}`, zh: `${fam.zh}・${style.zh}`, glazeName: `${fam.zh}釉 ${fam.en}`,
+    inner: mix(base, [255, 252, 247], 0.25), rim: mix(ink, RAW_CLAY, 0.35), handle: mix(base, deep, 0.35),
+    swatches: [base, mix(base, deep, 0.5), deep, ink, RAW_CLAY],
+    temp: Math.round(random(1220, 1285)),
+  };
+}
+
+function wrapX(x, r, fn) { fn(x); if (x + r > 512) fn(x - 512); if (x - r < 0) fn(x + 512); }
+
+// 釉面細節：口緣的鐵色、底部露胎、斑點
+function finishGlaze(g, base, deep, ink) {
+  g.noStroke();
+  for (let i = 0; i < 1600; i++) {
+    g.fill(...ink, random(40, 140));
+    const x = random(512), y = random(512), r = random(0.6, 2.4);
+    wrapX(x, r, xx => g.circle(xx, y, r));
+  }
+  for (let y = 0; y < 12; y++) { g.fill(...mix(ink, RAW_CLAY, 0.3), 200 * (1 - y / 12)); g.rect(0, y, 512, 1); }
+  // 底部露胎：釉料流到一半停住，邊緣是不規則的波浪
+  g.fill(...RAW_CLAY);
+  g.beginShape();
+  g.vertex(0, 512);
+  for (let x = 0; x <= 512; x += 4) {
+    const a = TWO_PI * x / 512;
+    g.vertex(x, 470 + 16 * noise(Math.cos(a) * 1.5 + 30, Math.sin(a) * 1.5 + 30));
+  }
+  g.vertex(512, 512);
+  g.endShape(CLOSE);
+  for (let i = 0; i < 300; i++) { g.fill(110, 80, 56, random(40, 120)); g.circle(random(512), random(476, 512), random(0.6, 1.8)); }
+}
+
+// 1. 茱莉亞集合：橫向對應繞陶器一圈的角度
+function patJulia(g, ramp, base, ink) {
+  const cs = [[-0.8, 0.156], [-0.4, 0.6], [0.285, 0.01], [-0.70176, -0.3842], [-0.835, -0.2321], [0.355, 0.355], [-0.75, 0.11]];
+  const b0 = random(cs);
+  const cr = b0[0] + random(-0.02, 0.02), ci = b0[1] + random(-0.02, 0.02);
+  const K = random([1, 2, 3]);
+  const r0 = random(0.25, 0.45), r1 = random(1.2, 1.6);
+  const rep = random(1.2, 2.2), off = random(0, 0.2);
+  const inside = mix(ink, base, 0.15);
+  const MAXI = 40;
+  g.loadPixels();
+  for (let y = 0; y < 512; y++) {
+    const rho = lerp(r0, r1, y / 512);
+    for (let x = 0; x < 512; x++) {
+      const th = TWO_PI * K * x / 512;
+      let zr = rho * Math.cos(th), zi = rho * Math.sin(th), i = 0;
+      while (i < MAXI && zr * zr + zi * zi < 16) { const t = zr * zr - zi * zi + cr; zi = 2 * zr * zi + ci; zr = t; i++; }
+      const col = i >= MAXI ? inside : ramp(((i + 1 - Math.log(Math.log(Math.sqrt(zr * zr + zi * zi))) / Math.LN2) / MAXI) * rep + off);
+      const idx = 4 * (y * 512 + x);
+      g.pixels[idx] = col[0]; g.pixels[idx + 1] = col[1]; g.pixels[idx + 2] = col[2]; g.pixels[idx + 3] = 255;
+    }
+  }
+  g.updatePixels();
+  return { tu: 2 };
+}
+
+// 2. 纏枝：遞迴分枝，像青花的筆線
+function patBranch(g, base, deep, ink) {
+  g.background(...base);
+  const segs = [];
+  const angle = random(0.34, 0.6), ratio = random(0.66, 0.74), skew = random(-0.1, 0.1);
+  const grow = (x, y, a, len, depth) => {
+    const x2 = x + Math.cos(a) * len, y2 = y + Math.sin(a) * len;
+    segs.push({ x, y, x2, y2, w: Math.max(0.8, depth * 0.9) });
+    if (depth <= 0) { segs.push({ leaf: true, x: x2, y: y2, r: random(3, 6), a }); return; }
+    const j = random(-0.08, 0.08);
+    grow(x2, y2, a - angle + skew + j, len * ratio, depth - 1);
+    grow(x2, y2, a + angle + skew + j, len * ratio, depth - 1);
+  };
+  const m = random([3, 4]);
+  const depth = random([7, 8]);
+  for (let i = 0; i < m; i++) {
+    grow((i + 0.5) * 512 / m, 470, -HALF_PI, random(70, 92), depth);
+    grow((i + 1) * 512 / m, 14, HALF_PI, random(40, 54), depth - 2);
+  }
+  for (const off of [-512, 0, 512]) {
+    for (const s of segs) {
+      if (s.leaf) {
+        g.noStroke();
+        g.fill(...deep, 200);
+        g.push(); g.translate(s.x + off, s.y); g.rotate(s.a); g.ellipse(0, 0, s.r * 2.6, s.r * 1.2); g.pop();
+      } else {
+        g.stroke(...ink, 220);
+        g.strokeWeight(s.w);
+        g.line(s.x + off, s.y, s.x2 + off, s.y2);
+      }
+    }
+  }
+  return { tu: 2 };
+}
+
+// 3. 曼陀羅：花瓣裡面還有花，只用線條和淡淡的釉色
+function patMandala(g, base, deep, ink) {
+  g.background(...base);
+  const n = random([2, 4]);
+  const s = 512 / n;
+  const k = random([6, 8, 10]);
+  const flower = (x, y, R, depth, rot) => {
+    g.stroke(...ink, 210);
+    g.strokeWeight(Math.max(0.7, depth * 0.7));
+    g.fill(...deep, depth === 2 ? 60 : 110);
+    g.circle(x, y, R * 2);
+    if (depth === 0) return;
+    for (let q = 0; q < k; q++) {
+      const a = rot + TWO_PI * q / k;
+      g.push();
+      g.translate(x + Math.cos(a) * R * 0.62, y + Math.sin(a) * R * 0.62);
+      g.rotate(a);
+      g.fill(...base, 230);
+      g.ellipse(0, 0, R * 0.5, R * 0.24);
+      g.pop();
+    }
+    for (let q = 0; q < k; q++) {
+      const a = rot + TWO_PI * (q + 0.5) / k;
+      flower(x + Math.cos(a) * R * 0.42, y + Math.sin(a) * R * 0.42, R * 0.26, depth - 1, a);
+    }
+    g.noStroke();
+    g.fill(...ink, 200);
+    g.circle(x, y, R * 0.12);
+  };
+  g.noFill();
+  g.stroke(...deep);
+  g.strokeWeight(1.2);
+  for (let i = 0; i <= n; i++) for (let j = 0; j <= n; j++) { g.circle(i * s, j * s, s * 0.34); g.circle(i * s, j * s, s * 0.2); }
+  for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) flower(i * s + s / 2, j * s + s / 2, s * 0.36, 2, random(TWO_PI));
+  return { tu: 3 };
+}
+
+// 4. 瑪瑙：多層扭曲的雜訊，用正弦變成一圈圈紋路
+function patAgate(g, ramp) {
+  const W = 192, H = 192;
+  const img = createImage(W, H);
+  img.loadPixels();
+  const R = random(0.45, 0.7), Z = TWO_PI * R, warp = random(2.5, 4), rep = random(1.5, 2.6), off = random(0, 0.15);
+  const fbm = (x, y, z) => { let v = 0, amp = 0.5, f = 1; for (let o = 0; o < 3; o++) { v += amp * noise(x * f, y * f, z * f); f *= 2; amp *= 0.5; } return v; };
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const th = TWO_PI * x / W;
+    const X = Math.cos(th) * R + 10, Y = Math.sin(th) * R + 10, Zz = y / H * Z;
+    const a = fbm(X, Y, Zz);
+    const b = fbm(X + 5.2, Y + 1.3, Zz + a * warp);
+    const c = fbm(X + b * warp, Y + b * warp, Zz + 1.7);
+    const band = 0.5 + 0.5 * Math.sin(c * rep * TWO_PI * 0.5 + a * 3);
+    const col = ramp(band * 0.85 + off);
+    const idx = 4 * (y * W + x);
+    img.pixels[idx] = col[0]; img.pixels[idx + 1] = col[1]; img.pixels[idx + 2] = col[2]; img.pixels[idx + 3] = 255;
+  }
+  img.updatePixels();
+  g.image(img, 0, 0, 512, 512);
+  return { tu: 2 };
+}
+
+function fillCard() {
+  $('cardNo').textContent = `No. ${glaze.seed}`;
+  $('cardName').textContent = glaze.name;
+  $('cardZh').textContent = glaze.zh;
+  $('cardGlaze').textContent = glaze.glazeName;
+  $('cardTemp').textContent = `${glaze.temp} °C`;
+  const h = (clayH * UNIT_CM).toFixed(1), d = (Math.max(...radii) * 2 * UNIT_CM).toFixed(1);
+  $('cardSize').textContent = `H ${h} × Ø ${d} cm`;
+  $('cardSw').innerHTML = glaze.swatches.map(c => `<i style="background:${css(c)}"></i>`).join('');
+}
+
+function updateMeter() {
+  if (stage === 'depth') {
+    $('meterLabel').textContent = 'Depth 深度';
+    $('meterVal').innerHTML = `${((N - 1 - floorJ) / (N - 1) * clayH * UNIT_CM).toFixed(1)}<small>cm</small>`;
+  } else if (stage === 'shape') {
+    $('meterLabel').textContent = 'Height × Width 高 × 寬';
+    $('meterVal').innerHTML = `${(clayH * UNIT_CM).toFixed(1)} × ${(Math.max(...radii) * 2 * UNIT_CM).toFixed(1)}<small>cm</small>`;
+  }
+}
+
+// ---------- AR ----------
+function resetAR() { ar.x = width / 2; ar.y = height * 0.68; setARScale(width < 640 ? 0.85 : 0.7); }
+
+function drawRoom() {
+  const c = $('room');
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  const W = Math.round(window.innerWidth * dpr), H = Math.round(window.innerHeight * dpr);
+  c.width = W; c.height = H;
+  const x = c.getContext('2d');
+  const hz = H * 0.64;
+  let gr = x.createLinearGradient(0, 0, 0, hz);
+  gr.addColorStop(0, '#f4f0ea'); gr.addColorStop(1, '#e1d6c8');
+  x.fillStyle = gr; x.fillRect(0, 0, W, hz);
+  gr = x.createRadialGradient(W * 0.75, H * 0.15, 10, W * 0.75, H * 0.15, W * 0.6);
+  gr.addColorStop(0, 'rgba(255,252,247,0.8)'); gr.addColorStop(1, 'rgba(255,252,247,0)');
+  x.fillStyle = gr; x.fillRect(0, 0, W, hz);
+  gr = x.createLinearGradient(0, hz, 0, H);
+  gr.addColorStop(0, '#cdbfae'); gr.addColorStop(1, '#a8957f');
+  x.fillStyle = gr; x.fillRect(0, hz, W, H - hz);
+  x.fillStyle = 'rgba(255,252,247,0.5)'; x.fillRect(0, hz, W, 2 * dpr);
+}
+
+function setBg(mode) {
+  $('bgLayer').dataset.bg = mode;
+  $('btnRoom').hidden = mode === 'room';
+  if (stream) {
+    $('cam').classList.toggle('full', mode === 'camera');
+    $('cam').classList.toggle('pip', mode !== 'camera');
+  }
+}
+
+function bgSource() {
+  const mode = $('bgLayer').dataset.bg;
+  if (mode === 'camera') { const v = $('cam'); return { el: v, w: v.videoWidth, h: v.videoHeight, mirror: true }; }
+  if (mode === 'photo') { const im = $('photo'); return { el: im, w: im.naturalWidth, h: im.naturalHeight, mirror: false }; }
+  const r = $('room'); return { el: r, w: r.width, h: r.height, mirror: false };
+}
+
+function startCountdown() {
+  if (countdown) return;
+  let n = 3;
+  const el = $('count');
+  el.textContent = n;
+  el.classList.add('show');
+  countdown = setInterval(() => {
+    n--;
+    if (n > 0) { el.textContent = n; return; }
+    clearInterval(countdown);
+    countdown = null;
+    el.classList.remove('show');
+    captureReq = true;
+  }, 800);
+}
+
+function capture() {
+  const W = cnv.elt.width, H = cnv.elt.height;
+  const out = document.createElement('canvas');
+  out.width = W; out.height = H;
+  const ctx = out.getContext('2d');
+  const src = bgSource();
+  if (src.w && src.h) {
+    const sc = Math.max(W / src.w, H / src.h);
+    const dw = src.w * sc, dh = src.h * sc;
+    ctx.save();
+    if (src.mirror) { ctx.translate(W, 0); ctx.scale(-1, 1); }
+    ctx.drawImage(src.el, (W - dw) / 2, (H - dh) / 2, dw, dh);
+    ctx.restore();
+  }
+  ctx.drawImage(cnv.elt, 0, 0);
+  const fs = Math.round(Math.max(16, H * 0.03));
+  ctx.shadowColor = 'rgba(43,26,12,0.45)';
+  ctx.shadowBlur = fs * 0.5;
+  ctx.fillStyle = 'rgba(244,240,234,0.96)';
+  ctx.font = `500 ${fs}px "Cormorant Garamond", serif`;
+  ctx.fillText(`${glaze.name} · No.${glaze.seed}`, W * 0.04, H - fs * 1.9);
+  ctx.font = `500 ${Math.round(fs * 0.5)}px Jost, sans-serif`;
+  ctx.fillText('掌中窯  KILN IN PALM', W * 0.04, H - fs * 1.0);
+  const f = $('flash');
+  f.classList.remove('go'); void f.offsetWidth; f.classList.add('go');
+  out.toBlob(b => {
+    if (!b) { toast('拍照失敗，請再試一次'); return; }
+    lastShot = b;
+    const img = $('shotImg');
+    if (img.dataset.url) URL.revokeObjectURL(img.dataset.url);
+    img.dataset.url = URL.createObjectURL(b);
+    img.src = img.dataset.url;
+    $('shot').classList.add('open');
+    quietUntil = millis() + 900;
+  }, 'image/png');
+}
+
+function closeShot() { $('shot').classList.remove('open'); quietUntil = millis() + 900; }
+
+let dlPromise = null;
+function getDownloads() {
+  if (!dlPromise) dlPromise = (window.claude && typeof window.claude.use === 'function') ? window.claude.use('downloads').catch(() => null) : Promise.resolve(null);
+  return dlPromise;
+}
+
+async function saveShot() {
+  if (!lastShot) return;
+  const name = `KilnInPalm-No${glaze.seed}.png`;
+  const dl = await getDownloads();
+  if (dl) {
+    try { await dl.save({ filename: name, data: lastShot }); toast('Saved — 照片已儲存'); }
+    catch (e) { if (e && e.code !== 'declined') toast('這裡無法直接儲存，請在圖片上按右鍵或長按另存。', 4500); }
+    return;
+  }
+  const a = document.createElement('a');
+  a.href = $('shotImg').src;
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  toast('Saved — 照片已下載');
+}
+
+// ---------- 流程 ----------
+const ORDER = ['depth', 'shape', 'kiln', 'reveal', 'ar'];
+const HINTS = {
+  depth: ['Open the centre.', '手指放在陶土中央往下按，壓出開口和深度'],
+  shape: ['Shape the wall, inside and out.', '外壁：按壓往內收、捏住往外拉｜內壁：手指伸進開口往外推，捏住往內收'],
+  handle: ['Pinch the wall and pull a coil.', '捏住陶器表面，往外拉出一個弧再收回表面，放開就接上把手'],
+  kiln: ['Into the kiln.', '窯門關上了，等它出窯'],
+  reveal: ['Out of the kiln.', '這組碎形釉紋由程式隨機生成，每一只都不一樣'],
+  ar: ['Place it anywhere.', '捏住移動陶器，雙手捏住可以縮放；比 YA 倒數拍照'],
+};
+const LEGEND = {
+  intro: [['Thumbs up', '開始']],
+  depth: [['Press', '往下壓出深度'], ['Thumbs up', '下一步']],
+  shape: [['Outside', '按壓收窄・捏住拉寬'], ['Inside', '伸進開口往外推'], ['Thumbs up', '送進窯燒']],
+  handle: [['Pinch', '拉出把手'], ['Peace', '左右對稱'], ['Thumbs up', '送進窯燒']],
+  kiln: [['Thumbs up', '略過動畫']],
+  reveal: [['One', '比一・換一組釉紋'], ['Thumbs up', '進入 AR']],
+  ar: [['Pinch', '移動、縮放'], ['Peace', '倒數拍照']],
+};
+
+function setStage(s) {
+  stage = s;
+  $('app').dataset.stage = s;
+  const idx = ORDER.indexOf(s);
+  document.querySelectorAll('ol.steps li').forEach(li => {
+    const i = ORDER.indexOf(li.dataset.s);
+    li.classList.toggle('now', i === idx);
+    li.classList.toggle('done', idx >= 0 && i < idx);
+  });
+  const h = HINTS[s] || ['', ''];
+  $('hint').querySelector('em').textContent = h[0];
+  $('hint').querySelector('span').textContent = h[1];
+  const items = LEGEND[s] || [];
+  $('legendList').innerHTML = items.map(([g, t]) => `<li><b>${g}</b>${t}</li>`).join('');
+  $('legend').classList.toggle('show', handOn && items.length > 0);
+  draft = null;
+  arGrab = null;
+  for (const k of Object.keys(engage)) delete engage[k];
+  quietUntil = millis() + 1000;   // 換步驟後先停一秒，避免同一個手勢連續觸發
+  if (s === 'ar') {
+    resetAR();
+    setBg(stream ? 'camera' : 'room');
+  } else if (stream) {
+    $('cam').classList.remove('full');
+    $('cam').classList.add('pip');
+  }
+}
+
+function nextStage() {
+  if (stage === 'intro') return startFlow();
+  if (stage === 'depth' && !hasHole()) { toast('先把手指放在陶土中央往下壓，開出一個孔'); return; }
+  if (stage === 'shape') return startKiln();
+  if (stage === 'kiln') return finishKiln();
+  const i = ORDER.indexOf(stage);
+  if (i >= 0 && i < ORDER.length - 1) setStage(ORDER[i + 1]);
+}
+
+function startFlow() { resetClay(); setStage('depth'); }
+
+let toastTimer;
+function toast(text, ms = 3200) {
+  const el = $('toast');
+  el.textContent = text;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), ms);
+}
+
+function bindUI() {
+  const on = (id, fn) => $(id).addEventListener('click', fn);
+  on('btnStartHand', async () => {
+    const ok = await enableHands();
+    if (!ok) startFlow();
+    else setStage('intro');
+  });
+  on('btnStartMouse', startFlow);
+  document.querySelectorAll('[data-next]').forEach(b => b.addEventListener('click', nextStage));
+  on('btnDepthReset', resetClay);
+  on('btnDemo', demoShape);
+  on('btnShapeReset', () => { const f = floorJ; resetClay(); floorJ = f; });
+  on('btnReshape', startFlow);
+  on('btnRefire', refire);
+  on('btnBack', () => setStage('reveal'));
+  on('btnRoom', () => setBg(stream ? 'camera' : 'room'));
+  on('btnShot', startCountdown);
+  on('btnSave', saveShot);
+  on('btnShotClose', closeShot);
+  $('sizeRange').addEventListener('input', e => setARScale(+e.target.value));
+  $('filePhoto').addEventListener('change', e => {
+    const f = e.target.files[0];
+    if (!f) return;
+    const im = $('photo');
+    if (im.dataset.url) URL.revokeObjectURL(im.dataset.url);
+    im.dataset.url = URL.createObjectURL(f);
+    im.onload = () => setBg('photo');
+    im.src = im.dataset.url;
+    e.target.value = '';
+  });
+  document.addEventListener('keydown', e => {
+    if (e.target.tagName === 'INPUT') return;
+    if (e.key === 'Enter') nextStage();
+    if (e.key === 'Escape') closeShot();
+  });
+}
+</script>
+
+</body>
+</html>
